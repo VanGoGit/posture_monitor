@@ -1,0 +1,7 @@
+mediapipe>=0.10.30
+opencv-python>=4.8.0
+customtkinter>=5.2.0
+Pillow>=10.0.0
+numpy>=1.24.0
+pystray>=0.19.5
+pygrabber>=0.1; sys_platform == "win32"
