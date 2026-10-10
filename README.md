@@ -96,3 +96,7 @@ posture_monitor/
 ## Настройки
 
 Сохраняются в `settings.json`, статистика — в `stats.json`.
+
+## Лицензия
+
+[MIT](LICENSE)
