@@ -8,7 +8,7 @@ from typing import Any
 import cv2
 import numpy as np
 
-from posture_engine import (
+from .posture_engine import (
     VISIBILITY_MIN,
     Point,
     back_segment,

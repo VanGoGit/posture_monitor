@@ -8,7 +8,7 @@ import threading
 from logging.handlers import RotatingFileHandler
 from types import TracebackType
 
-from paths import user_data_dir
+from .paths import user_data_dir
 
 
 def setup_logging() -> None:

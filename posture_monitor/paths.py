@@ -13,10 +13,10 @@ APP_NAME = "PostureMonitor"
 
 
 def app_dir() -> Path:
-    """Папка с исполняемым файлом (exe) или исходниками."""
+    """Папка с исполняемым файлом (exe) или корень репозитория."""
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
-    return Path(__file__).resolve().parent
+    return Path(__file__).resolve().parent.parent
 
 
 def user_data_dir() -> Path:

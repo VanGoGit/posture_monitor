@@ -15,18 +15,19 @@ import customtkinter as ctk
 import cv2
 from PIL import Image, ImageTk
 
-from alarm import AlarmSiren
-from alarm_controller import AlarmController
-from app_logging import setup_logging
-from camera_utils import CameraDevice, find_device, list_cameras
-from config import DELTA_MAX, DELTA_MIN, Settings
-from model_utils import ensure_model
-from platform_utils import is_autostart_enabled, set_autostart
-from posture_engine import FrameResult, PoseEngine, PostureMetrics, PostureState, calibrate
-from stats import StatsTracker
-from toast import ToastNotification
-from tray import TrayIcon
-from worker import (
+from . import __version__
+from .alarm import AlarmSiren
+from .alarm_controller import AlarmController
+from .app_logging import setup_logging
+from .camera_utils import CameraDevice, find_device, list_cameras
+from .config import DELTA_MAX, DELTA_MIN, Settings
+from .model_utils import ensure_model
+from .platform_utils import is_autostart_enabled, set_autostart
+from .posture_engine import FrameResult, PoseEngine, PostureMetrics, PostureState, calibrate
+from .stats import StatsTracker
+from .toast import ToastNotification
+from .tray import TrayIcon
+from .worker import (
     CameraSwitchFailed,
     CameraWaiting,
     CameraWorker,
@@ -61,7 +62,7 @@ class PostureMonitorApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
 
-        self.title("Монитор осанки")
+        self.title(f"Монитор осанки {__version__}")
         self.geometry("1100x780")
         self.minsize(900, 640)
 
@@ -92,6 +93,12 @@ class PostureMonitorApp(ctk.CTk):
         self._worker: CameraWorker | None = None
 
         self.settings.autostart = is_autostart_enabled()
+        if self.settings.autostart:
+            # Обновить команду запуска: программа могла переехать или смениться точка входа.
+            try:
+                set_autostart(True)
+            except OSError:
+                log.warning("Не удалось обновить запись автозапуска", exc_info=True)
         self._build_ui()
         self._update_status()
         self.protocol("WM_DELETE_WINDOW", self._on_close)

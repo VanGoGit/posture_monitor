@@ -26,8 +26,10 @@ py -m pip install -r requirements-dev.txt
 ## Запуск
 
 ```powershell
-py posture_monitor.py
+py run.py
 ```
+
+или `py -m posture_monitor`. Можно установить как пакет: `py -m pip install .` — появится команда `posture-monitor`.
 
 ## Возможности
 
@@ -51,7 +53,7 @@ py posture_monitor.py
 
 ```powershell
 py -m pip install -r requirements-lock.txt pyinstaller
-py -c "from model_utils import ensure_model; ensure_model()"
+py -c "from posture_monitor.model_utils import ensure_model; ensure_model()"
 py -m PyInstaller build.spec --noconfirm
 ```
 
@@ -74,25 +76,28 @@ mypy .
 ## Структура
 
 ```
-posture_monitor/
-  posture_monitor.py    # точка входа
-  gui.py                # интерфейс
-  posture_engine.py     # MediaPipe + алгоритм
-  worker.py             # камера в фоне, сообщения GUI ⇄ поток
-  video_renderer.py     # отрисовка скелета на кадре
-  alarm.py              # звуковой сигнал
-  alarm_controller.py   # реакция на тревогу (звук, уведомление, статистика)
-  stats.py              # статистика
-  tray.py               # системный трей
-  toast.py              # всплывающие уведомления
-  camera_utils.py       # поиск камер
-  model_utils.py        # загрузка модели
-  platform_utils.py     # камера/автозапуск по ОС
-  paths.py              # папка данных, атомарная запись
-  app_logging.py        # лог-файл
-  config.py             # settings.json
-  tests/                # pytest
-  build.spec            # PyInstaller
+posture_monitor/            # репозиторий
+  run.py                    # точка входа (и для PyInstaller)
+  posture_monitor/          # пакет
+    __main__.py             # python -m posture_monitor
+    gui.py                  # интерфейс
+    posture_engine.py       # MediaPipe + алгоритм
+    worker.py               # камера в фоне, сообщения GUI ⇄ поток
+    video_renderer.py       # отрисовка скелета на кадре
+    alarm.py                # звуковой сигнал
+    alarm_controller.py     # реакция на тревогу (звук, уведомление, статистика)
+    stats.py                # статистика
+    tray.py                 # системный трей
+    toast.py                # всплывающие уведомления
+    camera_utils.py         # поиск камер
+    model_utils.py          # загрузка модели
+    platform_utils.py       # камера/автозапуск по ОС
+    paths.py                # папка данных, атомарная запись
+    app_logging.py          # лог-файл
+    config.py               # settings.json
+  tests/                    # pytest
+  hooks/                    # хуки PyInstaller
+  build.spec                # PyInstaller
 ```
 
 ## Кросс-платформенность
@@ -118,7 +123,7 @@ posture_monitor/
 
 Папку можно переопределить переменной окружения `POSTURE_MONITOR_DATA_DIR`. Файлы старых версий (рядом с программой) переносятся автоматически.
 
-> После обновления до версии 0.2 перекалибруйте осанку: исправлен расчёт угла спины, старый эталон спины сбрасывается.
+> После обновления до версии 1.1 перекалибруйте осанку: исправлен расчёт угла спины, старый эталон спины сбрасывается.
 
 ## Лицензия
 

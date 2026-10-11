@@ -9,7 +9,7 @@ from pathlib import Path
 
 import cv2
 
-from paths import APP_NAME, app_dir
+from .paths import APP_NAME, app_dir
 
 
 def camera_backend() -> int:
@@ -33,7 +33,7 @@ def launch_exec_parts() -> list[str]:
         return [str(Path(sys.executable).resolve())]
     return [
         str(Path(sys.executable).resolve()),
-        str(app_dir() / "posture_monitor.py"),
+        str(app_dir() / "run.py"),
     ]
 
 

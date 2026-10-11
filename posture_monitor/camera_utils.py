@@ -7,7 +7,7 @@ import sys
 from collections.abc import Collection
 from dataclasses import dataclass
 
-from platform_utils import open_camera
+from .platform_utils import open_camera
 
 log = logging.getLogger(__name__)
 

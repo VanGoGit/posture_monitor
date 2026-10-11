@@ -67,7 +67,7 @@ jobs:
           pip install -r requirements-lock.txt pyinstaller
 
       - name: Download model
-        run: python -c "from model_utils import ensure_model; ensure_model()"
+        run: python -c "from posture_monitor.model_utils import ensure_model; ensure_model()"
 
       - name: Build exe
         run: python -m PyInstaller build.spec --noconfirm

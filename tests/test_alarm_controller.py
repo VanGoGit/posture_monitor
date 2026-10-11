@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from alarm_controller import AlarmController
-from config import Settings
+from posture_monitor.alarm_controller import AlarmController
+from posture_monitor.config import Settings
 
 
 class Recorder:

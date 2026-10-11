@@ -8,7 +8,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-from paths import app_dir
+from .paths import app_dir
 
 log = logging.getLogger(__name__)
 

@@ -9,10 +9,10 @@ import time
 import numpy as np
 import pytest
 
-import worker as worker_module
-from config import Settings
-from posture_engine import FrameResult, PostureMetrics
-from worker import (
+from posture_monitor import worker as worker_module
+from posture_monitor.config import Settings
+from posture_monitor.posture_engine import FrameResult, PostureMetrics
+from posture_monitor.worker import (
     CameraSwitchFailed,
     CameraWaiting,
     CameraWorker,

@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from datetime import date
 
-from config import Settings
-from paths import atomic_write_text, data_file
-from stats import StatsTracker
+from posture_monitor.config import Settings
+from posture_monitor.paths import atomic_write_text, data_file
+from posture_monitor.stats import StatsTracker
 
 
 def test_settings_round_trip(tmp_path):

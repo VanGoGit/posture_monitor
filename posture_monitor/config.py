@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import Any
 
-from paths import atomic_write_text, data_file
+from .paths import atomic_write_text, data_file
 
 log = logging.getLogger(__name__)
 

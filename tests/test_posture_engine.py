@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from config import Settings
-from posture_engine import (
+from posture_monitor.config import Settings
+from posture_monitor.posture_engine import (
     LEFT_EAR,
     LEFT_HIP,
     LEFT_SHOULDER,

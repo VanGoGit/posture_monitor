@@ -16,10 +16,10 @@ from typing import Any
 
 import cv2
 
-from config import Settings
-from platform_utils import open_camera
-from posture_engine import FrameResult, PoseEngine, evaluate_posture
-from video_renderer import render_frame
+from .config import Settings
+from .platform_utils import open_camera
+from .posture_engine import FrameResult, PoseEngine, evaluate_posture
+from .video_renderer import render_frame
 
 log = logging.getLogger(__name__)
 

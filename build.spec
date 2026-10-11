@@ -13,7 +13,7 @@ if model_file.exists():
     datas.append((str(model_file), "models"))
 
 a = Analysis(
-    [str(root / "posture_monitor.py")],
+    [str(root / "run.py")],
     pathex=[str(root)],
     binaries=[],
     datas=datas,

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from config import Settings
+from .config import Settings
 
 ALARM_TITLE = "Вы сутулитесь!"
 ALARM_MESSAGE = "Выпрямите спину и поднимите голову."

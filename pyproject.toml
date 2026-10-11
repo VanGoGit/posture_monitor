@@ -1,10 +1,24 @@
 [project]
 name = "posture-monitor"
-version = "0.2.0"
+version = "1.1.0"
 description = "Контроль осанки через веб-камеру (MediaPipe Pose)"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
+dynamic = ["dependencies"]
+
+[project.scripts]
+posture-monitor = "posture_monitor.gui:run_app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["posture_monitor"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
@@ -22,6 +36,9 @@ ignore = [
     "RUF002",
     "RUF003",
 ]
+
+[tool.ruff.lint.isort]
+known-first-party = ["posture_monitor"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["B018"]

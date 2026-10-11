@@ -19,7 +19,7 @@ from mediapipe.tasks.python.vision.pose_landmarker import (
     PoseLandmarkerOptions,
 )
 
-from config import Settings
+from .config import Settings
 
 # Индексы landmarks MediaPipe Pose
 LEFT_SHOULDER = 11

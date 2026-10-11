@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 
-from paths import atomic_write_text, data_file
+from .paths import atomic_write_text, data_file
 
 log = logging.getLogger(__name__)
 
