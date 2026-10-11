@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import threading
-from typing import Callable
+from collections.abc import Callable
+from typing import Any
 
 from PIL import Image, ImageDraw
 
@@ -27,14 +28,15 @@ class TrayIcon:
         self._on_show = on_show
         self._on_calibrate = on_calibrate
         self._on_quit = on_quit
-        self._icon = None
+        self._icon: Any = None
         self._thread: threading.Thread | None = None
 
-    def start(self) -> None:
+    def start(self) -> bool:
+        """Запускает иконку в отдельном потоке; False, если трей недоступен."""
         try:
             import pystray
         except ImportError:
-            return
+            return False
 
         menu = pystray.Menu(
             pystray.MenuItem("Показать", lambda _i, _it: self._on_show()),
@@ -49,6 +51,7 @@ class TrayIcon:
         )
         self._thread = threading.Thread(target=self._icon.run, daemon=True)
         self._thread.start()
+        return True
 
     def stop(self) -> None:
         if self._icon is not None:

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
+import plistlib
 import sys
 from pathlib import Path
 
 import cv2
 
-APP_NAME = "PostureMonitor"
+from paths import APP_NAME, app_dir
 
 
 def camera_backend() -> int:
@@ -26,16 +28,12 @@ def open_camera(index: int) -> cv2.VideoCapture:
     return cap
 
 
-def _app_root() -> Path:
-    return Path(__file__).resolve().parent
-
-
 def launch_exec_parts() -> list[str]:
     if getattr(sys, "frozen", False):
         return [str(Path(sys.executable).resolve())]
     return [
         str(Path(sys.executable).resolve()),
-        str(_app_root() / "posture_monitor.py"),
+        str(app_dir() / "posture_monitor.py"),
     ]
 
 
@@ -60,13 +58,18 @@ def set_autostart(enabled: bool) -> None:
         _set_linux_autostart(enabled)
 
 
+_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+
+
 def _windows_autostart_enabled() -> bool:
+    if sys.platform != "win32":  # сужение платформы для mypy
+        return False
     try:
         import winreg
 
         with winreg.OpenKey(
             winreg.HKEY_CURRENT_USER,
-            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            _RUN_KEY,
             0,
             winreg.KEY_READ,
         ) as key:
@@ -77,33 +80,41 @@ def _windows_autostart_enabled() -> bool:
 
 
 def _set_windows_autostart(enabled: bool) -> None:
+    if sys.platform != "win32":  # сужение платформы для mypy
+        raise OSError("Автозапуск через реестр доступен только в Windows")
     import winreg
 
-    key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
     with winreg.OpenKey(
         winreg.HKEY_CURRENT_USER,
-        key_path,
+        _RUN_KEY,
         0,
         winreg.KEY_SET_VALUE,
     ) as key:
         if enabled:
             winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, launch_command())
         else:
-            try:
+            with contextlib.suppress(OSError):
                 winreg.DeleteValue(key, APP_NAME)
-            except OSError:
-                pass
 
 
 def _linux_autostart_path() -> Path:
     return Path.home() / ".config" / "autostart" / f"{APP_NAME.lower()}.desktop"
 
 
+def _desktop_quote(arg: str) -> str:
+    """Кавычки для ключа Exec по спецификации Desktop Entry."""
+    # Обратный слеш экранируется дважды: правило строк применяется до правила кавычек.
+    escaped = arg.replace("\\", "\\\\\\\\")
+    for ch in '"`$':
+        escaped = escaped.replace(ch, "\\" + ch)
+    return f'"{escaped}"'
+
+
 def _set_linux_autostart(enabled: bool) -> None:
     path = _linux_autostart_path()
     if enabled:
         path.parent.mkdir(parents=True, exist_ok=True)
-        exec_line = " ".join(launch_exec_parts())
+        exec_line = " ".join(_desktop_quote(part) for part in launch_exec_parts())
         path.write_text(
             "\n".join(
                 [
@@ -123,35 +134,21 @@ def _set_linux_autostart(enabled: bool) -> None:
 
 
 def _macos_autostart_path() -> Path:
-    return (
-        Path.home()
-        / "Library"
-        / "LaunchAgents"
-        / f"com.{APP_NAME.lower()}.plist"
-    )
+    return Path.home() / "Library" / "LaunchAgents" / f"com.{APP_NAME.lower()}.plist"
 
 
 def _set_macos_autostart(enabled: bool) -> None:
     path = _macos_autostart_path()
     if enabled:
         path.parent.mkdir(parents=True, exist_ok=True)
-        args = launch_exec_parts()
-        args_xml = "".join(f"\n    <string>{arg}</string>" for arg in args)
-        path.write_text(
-            f"""<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
- "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>com.{APP_NAME.lower()}</string>
-  <key>ProgramArguments</key>
-  <array>{args_xml}
-  </array>
-  <key>RunAtLoad</key><true/>
-</dict>
-</plist>
-""",
-            encoding="utf-8",
-        )
+        with path.open("wb") as f:
+            plistlib.dump(
+                {
+                    "Label": f"com.{APP_NAME.lower()}",
+                    "ProgramArguments": launch_exec_parts(),
+                    "RunAtLoad": True,
+                },
+                f,
+            )
     elif path.exists():
         path.unlink()

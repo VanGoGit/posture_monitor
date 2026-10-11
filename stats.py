@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 
-STATS_PATH = Path(__file__).resolve().parent / "stats.json"
+from paths import atomic_write_text, data_file
+
+log = logging.getLogger(__name__)
+
+
+def stats_path() -> Path:
+    return data_file("stats.json")
 
 
 @dataclass
@@ -17,34 +24,41 @@ class DayStats:
 
 
 class StatsTracker:
-    def __init__(self) -> None:
+    def __init__(self, path: Path | None = None) -> None:
+        self._path = path or stats_path()
         self._data: dict[str, dict[str, float | int]] = {}
         self._active_since: float | None = None
         self._load()
 
     def _load(self) -> None:
-        if not STATS_PATH.exists():
+        if not self._path.exists():
             return
         try:
-            self._data = json.loads(STATS_PATH.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, TypeError):
-            self._data = {}
+            data = json.loads(self._path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            log.exception("Не удалось прочитать статистику %s", self._path)
+            return
+        if isinstance(data, dict):
+            self._data = data
 
     def _save(self) -> None:
-        STATS_PATH.write_text(
-            json.dumps(self._data, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        try:
+            atomic_write_text(self._path, json.dumps(self._data, ensure_ascii=False, indent=2))
+        except OSError:
+            log.exception("Не удалось сохранить статистику")
 
     def _today_key(self) -> str:
         return date.today().isoformat()
 
     def _day(self, key: str) -> DayStats:
         raw = self._data.get(key, {})
-        return DayStats(
-            events=int(raw.get("events", 0)),
-            seconds_bad=float(raw.get("seconds_bad", 0.0)),
-        )
+        try:
+            return DayStats(
+                events=int(raw.get("events", 0)),
+                seconds_bad=float(raw.get("seconds_bad", 0.0)),
+            )
+        except (AttributeError, TypeError, ValueError):
+            return DayStats()
 
     def _set_day(self, key: str, stats: DayStats) -> None:
         self._data[key] = {
@@ -87,8 +101,7 @@ class StatsTracker:
     def format_summary(self) -> str:
         today = self.today()
         lines = [
-            f"Сегодня: {today.events} срабатываний, "
-            f"{today.seconds_bad:.0f} с в плохой осанке",
+            f"Сегодня: {today.events} срабатываний, {today.seconds_bad:.0f} с в плохой осанке",
             "",
             "Последние 7 дней:",
         ]
@@ -96,7 +109,5 @@ class StatsTracker:
             if day.events == 0 and day.seconds_bad == 0:
                 lines.append(f"  {key}: —")
             else:
-                lines.append(
-                    f"  {key}: {day.events} раз, {day.seconds_bad:.0f} с"
-                )
+                lines.append(f"  {key}: {day.events} раз, {day.seconds_bad:.0f} с")
         return "\n".join(lines)

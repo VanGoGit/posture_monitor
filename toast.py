@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+
 import customtkinter as ctk
 
 _STYLES = {
@@ -65,9 +67,7 @@ class ToastNotification:
         )
         frame.pack(fill="both", expand=True, padx=2, pady=2)
 
-        accent = ctk.CTkFrame(
-            frame, width=4, corner_radius=2, fg_color=style["accent"]
-        )
+        accent = ctk.CTkFrame(frame, width=4, corner_radius=2, fg_color=style["accent"])
         accent.pack(side="left", fill="y", padx=(10, 0), pady=10)
 
         content = ctk.CTkFrame(frame, fg_color="transparent")
@@ -120,17 +120,14 @@ class ToastNotification:
 
     def destroy(self) -> None:
         if self._auto_hide_id is not None:
-            try:
+            # окно уже может быть уничтожено при выходе
+            with contextlib.suppress(Exception):
                 self._parent.after_cancel(self._auto_hide_id)
-            except Exception:
-                pass
             self._auto_hide_id = None
         self._visible = False
         if self._window is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self._window.destroy()
-            except Exception:
-                pass
             self._window = None
 
     def _animate_in(self, step: int) -> None:

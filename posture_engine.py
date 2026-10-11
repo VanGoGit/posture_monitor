@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import math
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 import cv2
 from mediapipe.tasks.python.core.base_options import BaseOptions
@@ -28,6 +30,8 @@ LEFT_HIP = 23
 RIGHT_HIP = 24
 
 VISIBILITY_MIN = 0.5
+
+Point = tuple[float, float]
 
 
 @dataclass
@@ -57,13 +61,17 @@ class PostureState:
 
 @dataclass
 class FrameResult:
-    frame: object  # np.ndarray, typed loosely to avoid circular import noise
+    frame: Any  # np.ndarray
     metrics: PostureMetrics
-    landmarks: list | None
+    landmarks: Sequence[Any] | None
     posture: PostureState
 
 
-def angle_from_vertical(p1: tuple[float, float], p2: tuple[float, float]) -> float:
+def angle_from_vertical(p1: Point, p2: Point) -> float:
+    """Угол (0–180°) вектора p1→p2 относительно направления «вверх» на экране.
+
+    Ось Y изображения направлена вниз, поэтому «вверх» — это отрицательный dy.
+    """
     dx = p2[0] - p1[0]
     dy = p2[1] - p1[1]
     dist = math.hypot(dx, dy)
@@ -73,8 +81,54 @@ def angle_from_vertical(p1: tuple[float, float], p2: tuple[float, float]) -> flo
     return math.degrees(math.acos(cos_theta))
 
 
-def _landmark_point(landmark, w: int, h: int) -> tuple[float, float]:
+def landmark_point(landmark: Any, w: int, h: int) -> Point:
     return landmark.x * w, landmark.y * h
+
+
+def _visible(landmark: Any) -> bool:
+    return landmark.visibility >= VISIBILITY_MIN
+
+
+def _midpoint(points: list[Point]) -> Point:
+    return (
+        sum(p[0] for p in points) / len(points),
+        sum(p[1] for p in points) / len(points),
+    )
+
+
+def neck_segments(landmarks: Sequence[Any], w: int, h: int) -> list[tuple[Point, Point]]:
+    """Видимые отрезки плечо → ухо (левый и/или правый)."""
+    segments = []
+    for shoulder_idx, ear_idx in ((LEFT_SHOULDER, LEFT_EAR), (RIGHT_SHOULDER, RIGHT_EAR)):
+        shoulder, ear = landmarks[shoulder_idx], landmarks[ear_idx]
+        if _visible(shoulder) and _visible(ear):
+            segments.append((landmark_point(shoulder, w, h), landmark_point(ear, w, h)))
+    return segments
+
+
+def back_segment(landmarks: Sequence[Any], w: int, h: int) -> tuple[Point, Point] | None:
+    """Отрезок середина таза → середина плеч (направлен вверх по спине)."""
+    shoulders = [
+        landmark_point(landmarks[i], w, h)
+        for i in (LEFT_SHOULDER, RIGHT_SHOULDER)
+        if _visible(landmarks[i])
+    ]
+    hips = [
+        landmark_point(landmarks[i], w, h) for i in (LEFT_HIP, RIGHT_HIP) if _visible(landmarks[i])
+    ]
+    if not shoulders or not hips:
+        return None
+    return _midpoint(hips), _midpoint(shoulders)
+
+
+def compute_metrics(landmarks: Sequence[Any], w: int, h: int) -> PostureMetrics:
+    neck_angles = [angle_from_vertical(s, e) for s, e in neck_segments(landmarks, w, h)]
+    neck_angle = sum(neck_angles) / len(neck_angles) if neck_angles else None
+
+    back = back_segment(landmarks, w, h)
+    back_angle = angle_from_vertical(*back) if back is not None else None
+
+    return PostureMetrics(neck_angle=neck_angle, back_angle=back_angle)
 
 
 class PoseEngine:
@@ -88,62 +142,26 @@ class PoseEngine:
             min_tracking_confidence=0.5,
         )
         self._landmarker = PoseLandmarker.create_from_options(options)
-        self._frame_ts = 0
+        self._last_ts_ms = -1
 
     def close(self) -> None:
         self._landmarker.close()
 
-    def process(self, frame_bgr) -> tuple[PostureMetrics, list | None]:
+    def process(self, frame_bgr: Any) -> tuple[PostureMetrics, Sequence[Any] | None]:
         h, w = frame_bgr.shape[:2]
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         mp_image = Image(image_format=ImageFormat.SRGB, data=rgb)
 
-        self._frame_ts += 33
-        result = self._landmarker.detect_for_video(mp_image, self._frame_ts)
+        # Реальное время кадра: трекинг MediaPipe учитывает интервалы между кадрами.
+        ts_ms = max(int(time.monotonic() * 1000), self._last_ts_ms + 1)
+        self._last_ts_ms = ts_ms
+        result = self._landmarker.detect_for_video(mp_image, ts_ms)
 
         if not result.pose_landmarks:
             return PostureMetrics(), None
 
         landmarks = result.pose_landmarks[0]
-        metrics = self._compute_metrics(landmarks, w, h)
-        return metrics, landmarks
-
-    def _compute_metrics(self, landmarks, w: int, h: int) -> PostureMetrics:
-        neck_angles: list[float] = []
-        for shoulder_idx, ear_idx in (
-            (LEFT_SHOULDER, LEFT_EAR),
-            (RIGHT_SHOULDER, RIGHT_EAR),
-        ):
-            shoulder = landmarks[shoulder_idx]
-            ear = landmarks[ear_idx]
-            if shoulder.visibility >= VISIBILITY_MIN and ear.visibility >= VISIBILITY_MIN:
-                p1 = _landmark_point(shoulder, w, h)
-                p2 = _landmark_point(ear, w, h)
-                neck_angles.append(angle_from_vertical(p1, p2))
-
-        neck_angle = sum(neck_angles) / len(neck_angles) if neck_angles else None
-
-        back_angle = None
-        points = []
-        for idx in (LEFT_SHOULDER, RIGHT_SHOULDER, LEFT_HIP, RIGHT_HIP):
-            lm = landmarks[idx]
-            if lm.visibility >= VISIBILITY_MIN:
-                points.append((idx, _landmark_point(lm, w, h)))
-
-        shoulders = [p for i, p in points if i in (LEFT_SHOULDER, RIGHT_SHOULDER)]
-        hips = [p for i, p in points if i in (LEFT_HIP, RIGHT_HIP)]
-        if shoulders and hips:
-            mid_shoulder = (
-                sum(p[0] for p in shoulders) / len(shoulders),
-                sum(p[1] for p in shoulders) / len(shoulders),
-            )
-            mid_hip = (
-                sum(p[0] for p in hips) / len(hips),
-                sum(p[1] for p in hips) / len(hips),
-            )
-            back_angle = angle_from_vertical(mid_shoulder, mid_hip)
-
-        return PostureMetrics(neck_angle=neck_angle, back_angle=back_angle)
+        return compute_metrics(landmarks, w, h), landmarks
 
 
 def evaluate_posture(
@@ -151,8 +169,12 @@ def evaluate_posture(
     metrics: PostureMetrics,
     *,
     bad_since: float | None,
+    now: float,
 ) -> tuple[PostureState, float | None]:
-    """Возвращает состояние осанки и обновлённый bad_since."""
+    """Возвращает состояние осанки и обновлённый bad_since.
+
+    ``now`` и ``bad_since`` — значения монотонных часов (time.monotonic()).
+    """
     if settings.baseline_neck is None or not metrics.is_valid:
         return PostureState(posture_ok=None, alarm_active=False, bad_elapsed=0.0), None
 
@@ -169,8 +191,8 @@ def evaluate_posture(
     if not neck_bad and not back_bad:
         return PostureState(posture_ok=True, alarm_active=False, bad_elapsed=0.0), None
 
-    since = bad_since if bad_since is not None else time.time()
-    elapsed = time.time() - since
+    since = bad_since if bad_since is not None else now
+    elapsed = now - since
     if elapsed >= settings.bad_posture_seconds:
         return (
             PostureState(posture_ok=False, alarm_active=True, bad_elapsed=elapsed),

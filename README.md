@@ -21,7 +21,7 @@ py -m pip install -r requirements.txt
 py -m pip install -r requirements-dev.txt
 ```
 
-При первом запуске скачается модель Pose Landmarker (~6 МБ) в `models/`.
+При первом запуске скачается модель Pose Landmarker (~6 МБ) в `models/` (с проверкой SHA-256).
 
 ## Запуск
 
@@ -43,27 +43,32 @@ py posture_monitor.py
 
 | Клавиша | Действие |
 |---|---|
-| `C` | Калибровка |
+| `C` (`С` в русской раскладке) | Калибровка |
 | `+` / `-` | Допуск ±1° |
-| `Q` | Свернуть в трей или выход |
+| `Q` (`Й`) | Свернуть в трей (если включено) или выход |
 
 ## Сборка exe (Windows)
 
 ```powershell
-py -m pip install pyinstaller
-py posture_monitor.py   # скачает модель, если её ещё нет
+py -m pip install -r requirements-lock.txt pyinstaller
+py -c "from model_utils import ensure_model; ensure_model()"
 py -m PyInstaller build.spec --noconfirm
 ```
 
-Готовый файл: `dist\PostureMonitor.exe`
+Готовый файл: `dist\PostureMonitor.exe`. CI собирает его на каждый push в `main` (артефакт `PostureMonitor-windows`).
+
+`requirements-lock.txt` — проверенные точные версии зависимостей для воспроизводимой сборки.
 
 > **pyinstaller не в PATH?** Используйте `py -m PyInstaller` вместо `pyinstaller`.  
 > **PermissionError при сборке?** Закройте запущенный `PostureMonitor.exe` и повторите.
 
-## Тесты
+## Тесты и проверки
 
 ```powershell
-pytest tests/ -q
+pytest -q
+ruff check .
+ruff format --check .
+mypy .
 ```
 
 ## Структура
@@ -73,10 +78,18 @@ posture_monitor/
   posture_monitor.py    # точка входа
   gui.py                # интерфейс
   posture_engine.py     # MediaPipe + алгоритм
-  worker.py             # камера в фоне
+  worker.py             # камера в фоне, сообщения GUI ⇄ поток
+  video_renderer.py     # отрисовка скелета на кадре
+  alarm.py              # звуковой сигнал
+  alarm_controller.py   # реакция на тревогу (звук, уведомление, статистика)
   stats.py              # статистика
   tray.py               # системный трей
+  toast.py              # всплывающие уведомления
+  camera_utils.py       # поиск камер
+  model_utils.py        # загрузка модели
   platform_utils.py     # камера/автозапуск по ОС
+  paths.py              # папка данных, атомарная запись
+  app_logging.py        # лог-файл
   config.py             # settings.json
   tests/                # pytest
   build.spec            # PyInstaller
@@ -93,9 +106,19 @@ posture_monitor/
 | Автозапуск | реестр | LaunchAgent | .desktop |
 | Трей | ✅ | ✅ | ✅ |
 
-## Настройки
+## Настройки и данные
 
-Сохраняются в `settings.json`, статистика — в `stats.json`.
+`settings.json`, `stats.json` и лог `posture_monitor.log` хранятся в папке пользователя:
+
+| ОС | Папка |
+|---|---|
+| Windows | `%APPDATA%\PostureMonitor` |
+| macOS | `~/Library/Application Support/PostureMonitor` |
+| Linux | `~/.config/posturemonitor` (или `$XDG_CONFIG_HOME`) |
+
+Папку можно переопределить переменной окружения `POSTURE_MONITOR_DATA_DIR`. Файлы старых версий (рядом с программой) переносятся автоматически.
+
+> После обновления до версии 0.2 перекалибруйте осанку: исправлен расчёт угла спины, старый эталон спины сбрасывается.
 
 ## Лицензия
 

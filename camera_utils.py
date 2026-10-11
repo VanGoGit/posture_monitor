@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import sys
+from collections.abc import Collection
 from dataclasses import dataclass
 
 from platform_utils import open_camera
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -24,8 +28,9 @@ def _directshow_names() -> list[str]:
     try:
         from pygrabber.dshow_graph import FilterGraph
 
-        return FilterGraph().get_input_devices()
+        return list(FilterGraph().get_input_devices())
     except Exception:
+        log.warning("Не удалось получить имена камер DirectShow", exc_info=True)
         return []
 
 
@@ -39,12 +44,19 @@ def _probe_camera(index: int) -> bool:
     return ok
 
 
-def list_cameras(max_index: int = 10) -> list[CameraDevice]:
+def list_cameras(
+    max_index: int = 10, *, assume_available: Collection[int] = ()
+) -> list[CameraDevice]:
+    """Перебирает индексы камер.
+
+    ``assume_available`` — индексы, которые уже открыты приложением: повторное
+    открытие такой камеры обычно не удаётся, поэтому их не проверяем.
+    """
     dshow_names = _directshow_names()
     found: list[CameraDevice] = []
 
     for index in range(max_index):
-        if not _probe_camera(index):
+        if index not in assume_available and not _probe_camera(index):
             continue
         if index < len(dshow_names) and dshow_names[index].strip():
             name = dshow_names[index].strip()
